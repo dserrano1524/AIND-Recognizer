@@ -34,7 +34,7 @@ class ModelSelector(object):
     def base_model(self, num_states):
         # with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
-        # warnings.filterwarnings("ignore", category=RuntimeWarning)
+        warnings.filterwarnings("ignore", category=RuntimeWarning)
         try:
             hmm_model = GaussianHMM(n_components=num_states, covariance_type="diag", n_iter=1000,
                                     random_state=self.random_state, verbose=False).fit(self.X, self.lengths)
@@ -128,10 +128,10 @@ class SelectorDIC(ModelSelector):
         DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i)) '''
         model_scores = 0
         hmm_model = self.base_model(n)
-        for word, w_lengths in self.all_word_Xlengths.items():
+        for word, (X, lengths) in self.all_word_Xlengths.items():
             # We avoid j=i in the Sum
             if word != self.this_word:
-                logL = hmm_model.score(word,w_lengths)
+                logL = hmm_model.score(X,lengths)
                 model_scores += logL
         # According to the given formula, alpha = 1
         alpha = 1
@@ -144,10 +144,10 @@ class SelectorDIC(ModelSelector):
              the mentor. DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i)) '''
             model_scores = []
             hmm_model = self.base_model(n)
-            for word, w_lengths in self.all_word_Xlengths.items():
+            for word, (X, lengths) in self.all_word_Xlengths.items():
                 # We avoid j=i in the Sum
                 if word != self.this_word:
-                    logL = hmm_model.score(word,w_lengths)
+                    logL = hmm_model.score(X,lengths)
                     model_scores.append(logL)
             DIC = hmm_model.score(self.X, self.lengths) - (np.mean(model_scores))
             return hmm_model, DIC
@@ -161,7 +161,7 @@ class SelectorDIC(ModelSelector):
             best_score = float("-Inf")
             # ange self.min_n_components and self.max_n_components +1 (inclusive)
             for n in range(self.min_n_components, self.max_n_components+1):
-                hmm_model, DIC = self.calc_dic(n)
+                hmm_model, DIC = self.calc_dic_v2(n)
                 if DIC > best_score:
                     best_score = DIC
                     best_model = hmm_model
@@ -185,6 +185,13 @@ class SelectorCV(ModelSelector):
         split_method = KFold()
         for cv_train_idx, cv_test_idx in split_method.split(self.sequences):
             X, lengths = combine_sequences(cv_test_idx, self.sequences)
+            #As we can see, the model is fit on self.X, self.lengths
+            #hmm_model = GaussianHMM(n_components=num_states, covariance_type="diag", n_iter=1000,
+            # random_state=self.random_state, verbose=False).fit(self.X, self.lengths)
+            # so we fit with training set
+            X_train, lengths_train = combine_sequences(cv_train_idx, self.sequences)
+            self.X = X_train
+            self.lengths = lengths_train
             model = self.base_model(n)
             model_scores.append(model.score(X,lengths))
         return model, np.mean(model_scores)
@@ -203,6 +210,38 @@ class SelectorCV(ModelSelector):
                     best_score = CV
                     best_model = hmm_model
             return best_model
+        except:
+            return self.base_model(self.n_constant)
+            #import sys
+            #e = sys.exc_info()[0]
+            #return e
+
+    def select_v2(self):
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+        # TODO implement model selection using CV
+        try:
+            fixed_k = 3
+            model_scores = []
+            # ange self.min_n_components and self.max_n_components +1 (inclusive)
+            for n in range(self.min_n_components, self.max_n_components+1):
+                scores = []
+                # Meets condition loop fold_idx <- [0, k-1] as range is not inclusive
+                for fold_idx in range(1, fixed_k):
+                    split_method = KFold(n_splits=fixed_k)
+                    for cv_train_idx, cv_test_idx in split_method.split(self.sequences):
+                        X_train, lengths_train = combine_sequences(cv_test_idx, self.sequences)
+                        X_test, lengths_test = combine_sequences(cv_test_idx, self.sequences)
+                        #As we can see, the model is fit on self.X, self.lengths
+                        #hmm_model = GaussianHMM(n_components=num_states, covariance_type="diag", n_iter=1000,
+                        # random_state=self.random_state, verbose=False).fit(self.X, self.lengths)
+                        self.X = X_train
+                        self.lengths = lengths_train
+                        hmm_model = self.base_model(n)
+                        scores.append(hmm_model.score(X_test,lengths_test))
+                model_scores.append(np.mean(scores))
+            best_n = np.max(model_scores)
+            return self.base_model(best_n)
         except:
             return self.base_model(self.n_constant)
             #import sys

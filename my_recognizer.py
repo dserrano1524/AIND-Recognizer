@@ -21,5 +21,21 @@ def recognize(models: dict, test_set: SinglesData):
     probabilities = []
     guesses = []
     # TODO implement the recognizer
-    # return probabilities, guesses
-    raise NotImplementedError
+    for word, (X, lengths) in test_set.get_all_Xlengths().items():
+        word_probabilities = dict()
+        best_guess_word = ""
+        best_model_score = float('-Inf')
+        # According to SinglesData, load_data already inserts words ordered by word_id
+        for word, model in models.items():
+            try:
+                log_likelihood = model.score(X,lengths)
+                word_probabilities[word] = log_likelihood
+                if log_likelihood > best_model_score:
+                    best_model_score = log_likelihood
+                    best_guess_word = word
+            except:
+                word_probabilities['Error_in word:_' + word] = float('-Inf')
+        probabilities.append(word_probabilities)
+        guesses.append(best_guess_word)
+
+    return probabilities, guesses
