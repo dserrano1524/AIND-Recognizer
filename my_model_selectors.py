@@ -196,6 +196,19 @@ class SelectorCV(ModelSelector):
             model_scores.append(model.score(X,lengths))
         return model, np.mean(model_scores)
 
+    def cal_cv_v2(self, n):
+        ''' Calcs cross validation score using scikit-learn K-Fold using 2 splits
+        following mentor recommendations'''
+        model_scores = []
+        model = None
+        split_method = KFold(n_splits=2)
+        for cv_train_idx, cv_test_idx in split_method.split(self.sequences):
+            self.X, self.lengths = combine_sequences(cv_train_idx, self.sequences)
+            model = self.base_model(n)
+            x, l = combine_sequences(cv_test_idx, self.sequences)
+            model_scores.append(model.score(x,l))
+        return model, np.mean(model_scores)
+
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
