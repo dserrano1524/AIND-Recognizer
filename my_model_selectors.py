@@ -95,25 +95,22 @@ class SelectorBIC(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection based on BIC scores
-        try:
-            best_model = None
-            best_score = float("Inf")
-            # ange self.min_n_components and self.max_n_components +1 (inclusive)
-            for n in range(self.min_n_components, self.max_n_components+1):
+
+        best_model = None
+        best_score = float("Inf")
+        # ange self.min_n_components and self.max_n_components +1 (inclusive)
+        for n in range(self.min_n_components, self.max_n_components+1):
+            try:
                 hmm_model, BIC = self.calc_bic(n)
                 #Model selection: The lower the AIC/BIC value the better the model
                 #(onlycompare AIC with AIC and BIC with BIC values!).
                 if BIC < best_score:
                     best_score = BIC
                     best_model = hmm_model
+            except:
+                return self.base_model(self.n_constant)
 
-            return best_model
-        except:
-            return self.base_model(self.n_constant)
-            #import sys
-            #e = sys.exc_info()[0]
-            #return e
-
+        return best_model
 
 class SelectorDIC(ModelSelector):
     ''' select best model based on Discriminative Information Criterion
@@ -139,39 +136,47 @@ class SelectorDIC(ModelSelector):
         DIC = hmm_model.score(self.X, self.lengths) - ((model_scores* alpha)/(M-1))
         return hmm_model, DIC
 
-        def cal_dic_v2(self,n):
-            ''' Calcultates DIC by using the mean of the scores as suggested by
-             the mentor. DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i)) '''
-            model_scores = []
-            hmm_model = self.base_model(n)
-            for word, (X, lengths) in self.all_word_Xlengths.items():
-                # We avoid j=i in the Sum
-                if word != self.this_word:
-                    logL = hmm_model.score(X,lengths)
-                    model_scores.append(logL)
-            DIC = hmm_model.score(self.X, self.lengths) - (np.mean(model_scores))
-            return hmm_model, DIC
+    def cal_dic_v2(self,n):
+        ''' Calcultates DIC by using the mean of the scores as suggested by
+         the mentor. DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i)) '''
+        model_scores = []
+        hmm_model = self.base_model(n)
+        for word, (X, lengths) in self.all_word_Xlengths.items():
+            # We avoid j=i in the Sum
+            if word != self.this_word:
+                logL = hmm_model.score(X,lengths)
+                model_scores.append(logL)
+        DIC = hmm_model.score(self.X, self.lengths) - (np.mean(model_scores))
+        return hmm_model, DIC
+
+    def cal_dic_v3(self,n):
+        ''' Calcultates DIC by using V2 with hwords as suggested by the mentor.
+         DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i)) '''
+        model_scores = []
+        hmm_model = self.base_model(n)
+        for word, (X, lengths) in self.hwords.items():
+            # We avoid j=i in the Sum
+            if word != self.this_word:
+                logL = hmm_model.score(X,lengths)
+                model_scores.append(logL)
+        DIC = hmm_model.score(self.X, self.lengths) - np.mean(model_scores)
+        return hmm_model, DIC
 
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
-
         # TODO implement model selection based on DIC scores
-        try:
-            best_model = None
-            best_score = float("-Inf")
-            # ange self.min_n_components and self.max_n_components +1 (inclusive)
-            for n in range(self.min_n_components, self.max_n_components+1):
-                hmm_model, DIC = self.calc_dic_v2(n)
+        best_model = None
+        best_score = float("-Inf")
+        # ange self.min_n_components and self.max_n_components +1 (inclusive)
+        for n in range(self.min_n_components, self.max_n_components+1):
+            try:
+                hmm_model, DIC = self.cal_dic_v3(n)
                 if DIC > best_score:
                     best_score = DIC
                     best_model = hmm_model
-            return best_model
-        except:
-            return self.base_model(self.n_constant)
-            #import sys
-            #e = sys.exc_info()[0]
-            #return e
-
+            except:
+                return self.base_model(self.n_constant)
+        return best_model
 
 class SelectorCV(ModelSelector):
     ''' select best model based on average log Likelihood of cross-validation folds
@@ -213,21 +218,18 @@ class SelectorCV(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection using CV
-        try:
-            best_model = None
-            best_score = float("Inf")
-            # ange self.min_n_components and self.max_n_components +1 (inclusive)
-            for n in range(self.min_n_components, self.max_n_components+1):
+        best_model = None
+        best_score = float("Inf")
+        # ange self.min_n_components and self.max_n_components +1 (inclusive)
+        for n in range(self.min_n_components, self.max_n_components+1):
+            try:
                 hmm_model, CV = self.cal_cv(n)
                 if CV < best_score:
                     best_score = CV
                     best_model = hmm_model
-            return best_model
-        except:
-            return self.base_model(self.n_constant)
-            #import sys
-            #e = sys.exc_info()[0]
-            #return e
+            except:
+                return self.base_model(self.n_constant)
+        return best_model
 
     def select_v2(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
